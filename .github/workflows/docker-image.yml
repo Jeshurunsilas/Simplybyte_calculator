@@ -34,3 +34,32 @@ jobs:
           tags: |
             jeshurunsilas/simplybyte-calculator:latest
             jeshurunsilas/simplybyte-calculator:${{ github.sha }}
+
+  deploy-to-aws:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy latest image to EC2
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-042d94fa527aaf01e" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["sudo docker pull jeshurunsilas/simplybyte-calculator:latest","sudo docker rm -f simplybyte-calculator || true","sudo docker run -d --restart unless-stopped --name simplybyte-calculator -p 5000:5000 jeshurunsilas/simplybyte-calculator:latest"]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "Deployment command ID: $COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-042d94fa527aaf01e"
+
+          echo "AWS deployment completed successfully!"
