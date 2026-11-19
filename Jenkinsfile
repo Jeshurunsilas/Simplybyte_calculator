@@ -112,10 +112,6 @@ pipeline {
     }
 
     post {
-        always {
-            bat 'docker logout'
-        }
-
         success {
             echo 'SUCCESS: Docker image pushed and production EC2 deployment completed!'
         }
